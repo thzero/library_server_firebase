@@ -4,7 +4,7 @@ import LibraryConstants from '@thzero/library/constants';
 
 import NotImplementedError from '@thzero/library/errors/notImplemented';
 
-import Service from '.@thzero/library/service/index';
+import Service from '@thzero/library/service/index';
 
 import TokenExpiredError from '@thzero/library/errors/tokenExpired';
 

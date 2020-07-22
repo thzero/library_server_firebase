@@ -2,11 +2,11 @@ import admin from 'firebase-admin';
 
 import LibraryConstants from '@thzero/library/constants';
 
-import NotImplementedError from '@thzero/library/errors/notImplemented';
+import NotImplementedError from '@thzero/library_common/errors/notImplemented';
 
 import Service from '@thzero/library/service/index';
 
-import TokenExpiredError from '@thzero/library/errors/tokenExpired';
+import TokenExpiredError from '@thzero/library_common/errors/tokenExpired';
 
 class FirebaseAuthAdminService extends Service {
 	async deleteUser(uid) {

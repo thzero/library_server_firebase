@@ -6,7 +6,7 @@ import NotImplementedError from '@thzero/library_common/errors/notImplemented';
 
 import Service from '@thzero/library/service/index';
 
-import TokenExpiredError from '@thzero/library_common/errors/tokenExpired';
+import TokenExpiredError from '@thzero/library/errors/tokenExpired';
 
 class FirebaseAuthAdminService extends Service {
 	async deleteUser(uid) {

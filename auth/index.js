@@ -9,6 +9,18 @@ import Service from '@thzero/library_server/service/index';
 import TokenExpiredError from '@thzero/library_server/errors/tokenExpired';
 
 class FirebaseAuthAdminService extends Service {
+	constructor() {
+		super();
+
+		this._serviceUsers = null;
+	}
+
+	async init(injector) {
+		await this.init(injector);
+
+		this._serviceUsers  = this._injector.getService(LibraryConstants.InjectorKeys.SERVICE_USERS);
+	}
+
 	async deleteUser(uid) {
 		try {
 			if (String.isNullOrEmpty(uid))
@@ -122,9 +134,9 @@ class FirebaseAuthAdminService extends Service {
 			// const user = await admin.auth().getUser(uid);
 			// const claims = user.customClaims;
 
-			const userResponse = await this._serviceUser.fetchByExternalId(correlationId, uid);
+			const userResponse = await this._serviceUsers.fetchByExternalId(correlationId, uid);
 			if (!userResponse.success || !userResponse.results) {
-				const userUpdateResponse = this._serviceUser.update(correlationId, {
+				const userUpdateResponse = this._serviceUsers.update(correlationId, {
 					id: uid
 				})
 				if (!userUpdateResponse.success || !userUpdateResponse.results)
@@ -168,10 +180,6 @@ class FirebaseAuthAdminService extends Service {
 
 	_initConfig() {
 		throw new NotImplementedError();
-	}
-
-	get _serviceUser() {
-		return this._injector.getService(LibraryConstants.InjectorKeys.SERVICE_USERS);
 	}
 }
 

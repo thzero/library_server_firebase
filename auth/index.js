@@ -16,7 +16,17 @@ class FirebaseAuthAdminService extends Service {
 	}
 
 	async init(injector) {
-		await this.init(injector);
+		await super.init(injector);
+
+		let serviceAccount = process.env.SERVICE_ACCOUNT_KEY;
+		if (serviceAccount)
+			serviceAccount = JSON.parse(serviceAccount);
+		if (!serviceAccount)
+			serviceAccount = this._initConfig();
+		admin.initializeApp({
+			credential: admin.credential.cert(serviceAccount),
+			databaseURL: serviceAccount.database_url
+		});
 
 		this._serviceUsers  = this._injector.getService(LibraryConstants.InjectorKeys.SERVICE_USERS);
 	}
@@ -45,20 +55,6 @@ class FirebaseAuthAdminService extends Service {
 		}
 
 		return this._error();
-	}
-
-	async init(injector) {
-		await super.init(injector);
-
-		let serviceAccount = process.env.SERVICE_ACCOUNT_KEY;
-		if (serviceAccount)
-			serviceAccount = JSON.parse(serviceAccount);
-		if (!serviceAccount)
-			serviceAccount = this._initConfig();
-		admin.initializeApp({
-			credential: admin.credential.cert(serviceAccount),
-			databaseURL: serviceAccount.database_url
-		});
 	}
 
 	async getUser(uid) {
@@ -159,7 +155,7 @@ class FirebaseAuthAdminService extends Service {
 				throw new TokenExpiredError();
 		}
 
-		return null
+		return null;
 	}
 
 	_convert(requestedUser) {

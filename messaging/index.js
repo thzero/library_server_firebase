@@ -18,10 +18,10 @@ class FirebaseMessagingService extends Service {
 
 			// Send a message to the device corresponding to the provided registration token.
 			const response = await admin.messaging().send(message);
-			this._logger.debug('Successfully sent message', response);
+			this._logger.debug('FirebaseMessagingService', 'setMessage', 'Successfully sent message', response);
 		}
 		catch (err) {
-			this._logger.exception(err);
+			this._logger.exception('FirebaseMessagingService', 'setMessage', err);
 		}
 
 		return null

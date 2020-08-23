@@ -42,19 +42,19 @@ class FirebaseAuthAdminService extends Service {
 
 			const results = await admin.auth().deleteUser(uid);
 			if (!results)
-				return this._error();
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to delete user.');
 
 			return this._success();
 		}
 		catch(err) {
 			if (err.code && err.code === 'auth/user-not-found') {
-				this._logger.warn(err);
+				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found', err);
 				return this._success('user-not-found');
 			}
-			this._logger.exception(err);
+			this._logger.exception('FirebaseAuthAdminService', 'deleteUser', err);
 		}
 
-		return this._error();
+		return this._error('FirebaseAuthAdminService', 'deleteUser');
 	}
 
 	async getUser(uid) {
@@ -69,7 +69,7 @@ class FirebaseAuthAdminService extends Service {
 			return this._convert(user);
 		}
 		catch(err) {
-			this._logger.exception(err);
+			this._logger.exception('FirebaseAuthAdminService', 'getUser', err);
 		}
 
 		return null
@@ -77,13 +77,12 @@ class FirebaseAuthAdminService extends Service {
 
 	async setClaims(uid, claims, replace) {
 		try {
-			if (String.isNullOrEmpty(uid))
-				return this._error();
+			this._enforceNotEmpty(uid, 'FirebaseAuthAdminService', 'deleteUser', uid, 'uid');
 
 			// Lookup the user associated with the specified uid.
 			const user = await admin.auth().getUser(uid);
 			if (!user)
-				return this._error();
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to get user');
 
 			let updatedClaims = claims ? { ...claims } : null;
 			if (!replace) {
@@ -99,8 +98,8 @@ class FirebaseAuthAdminService extends Service {
 			return this._initResponse();
 		}
 		catch(err) {
-			this._logger.exception(err);
-			return this._error();
+			this._logger.exception('FirebaseAuthAdminService', 'setClaims', err);
+			return this._error('FirebaseAuthAdminService', 'setClaims');
 		}
 	}
 
@@ -119,7 +118,7 @@ class FirebaseAuthAdminService extends Service {
 			if (!decodedToken)
 				return results;
 
-			this._logger.debug('verifyToken', decodedToken);
+			this._logger.debug('FirebaseAuthAdminService', 'verifyToken', 'decodedToken', decodedToken);
 
 			const uid = decodedToken.uid;
 			if (!uid)
@@ -150,7 +149,7 @@ class FirebaseAuthAdminService extends Service {
 			return results;
 		}
 		catch(err) {
-			this._logger.exception(err);
+			this._logger.exception('FirebaseAuthAdminService', 'verifyToken', err);
 			if (err.code === "auth/id-token-expired")
 				throw new TokenExpiredError();
 		}

@@ -77,7 +77,7 @@ class FirebaseAuthAdminService extends Service {
 
 	async setClaims(uid, claims, replace) {
 		try {
-			this._enforceNotEmpty(uid, 'FirebaseAuthAdminService', 'deleteUser', uid, 'uid');
+			this._enforceNotEmpty('FirebaseAuthAdminService', 'deleteUser', uid, 'uid');
 
 			// Lookup the user associated with the specified uid.
 			const user = await admin.auth().getUser(uid);

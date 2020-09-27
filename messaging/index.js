@@ -9,7 +9,7 @@ class FirebaseMessagingService extends Service {
 		this.registrationToken = null;
 	}
 
-	async setMessage(data) {
+	async setMessage(correlationId, data) {
 		try {
 			var message = {
 				data: data,
@@ -18,10 +18,10 @@ class FirebaseMessagingService extends Service {
 
 			// Send a message to the device corresponding to the provided registration token.
 			const response = await admin.messaging().send(message);
-			this._logger.debug('FirebaseMessagingService', 'setMessage', 'Successfully sent message', response);
+			this._logger.debug('FirebaseMessagingService', 'setMessage', 'Successfully sent message', response, correlationId);
 		}
 		catch (err) {
-			this._logger.exception('FirebaseMessagingService', 'setMessage', err);
+			this._logger.exception('FirebaseMessagingService', 'setMessage', err, correlationId);
 		}
 
 		return null

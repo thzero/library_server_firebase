@@ -31,7 +31,7 @@ class FirebaseAuthAdminService extends Service {
 		this._serviceUsers  = this._injector.getService(LibraryConstants.InjectorKeys.SERVICE_USERS);
 	}
 
-	async deleteUser(uid) {
+	async deleteUser(correlationId, uid) {
 		try {
 			if (String.isNullOrEmpty(uid))
 				return null;
@@ -42,22 +42,22 @@ class FirebaseAuthAdminService extends Service {
 
 			const results = await admin.auth().deleteUser(uid);
 			if (!results)
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to delete user.');
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to delete user.', null, null, null, correlationId);
 
-			return this._success();
+			return this._success(correlationId);
 		}
 		catch(err) {
 			if (err.code && err.code === 'auth/user-not-found') {
-				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found', err);
-				return this._success('user-not-found');
+				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found', err, correlationId);
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'user-not-found', err, correlationId);
 			}
-			this._logger.exception('FirebaseAuthAdminService', 'deleteUser', err);
+			this._logger.exception('FirebaseAuthAdminService', 'deleteUser', err, correlationId);
 		}
 
-		return this._error('FirebaseAuthAdminService', 'deleteUser');
+		return this._error('FirebaseAuthAdminService', 'deleteUser', null, null, null, correlationId);
 	}
 
-	async getUser(uid) {
+	async getUser(correlationId, uid) {
 		try {
 			if (String.isNullOrEmpty(uid))
 				return null;
@@ -69,20 +69,20 @@ class FirebaseAuthAdminService extends Service {
 			return this._convert(user);
 		}
 		catch(err) {
-			this._logger.exception('FirebaseAuthAdminService', 'getUser', err);
+			this._logger.exception('FirebaseAuthAdminService', 'getUser', err, correlationId);
 		}
 
 		return null
 	}
 
-	async setClaims(uid, claims, replace) {
+	async setClaims(correlationId, uid, claims, replace) {
 		try {
-			this._enforceNotEmpty('FirebaseAuthAdminService', 'deleteUser', uid, 'uid');
+			this._enforceNotEmpty('FirebaseAuthAdminService', 'deleteUser', uid, 'uid', correlationId);
 
 			// Lookup the user associated with the specified uid.
 			const user = await admin.auth().getUser(uid);
 			if (!user)
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to get user');
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to get user', null, null, null, correlationId);
 
 			let updatedClaims = claims ? { ...claims } : null;
 			if (!replace) {
@@ -95,11 +95,11 @@ class FirebaseAuthAdminService extends Service {
 			// next time a new one is issued.
 			await admin.auth().setCustomUserClaims(uid, updatedClaims);
 
-			return this._initResponse();
+			return this._success(correlationId);
 		}
 		catch(err) {
-			this._logger.exception('FirebaseAuthAdminService', 'setClaims', err);
-			return this._error('FirebaseAuthAdminService', 'setClaims');
+			this._logger.exception('FirebaseAuthAdminService', 'setClaims', err, correlationId);
+			return this._error('FirebaseAuthAdminService', 'setClaims', err, null, null, null, correlationId);
 		}
 	}
 
@@ -118,7 +118,7 @@ class FirebaseAuthAdminService extends Service {
 			if (!decodedToken)
 				return results;
 
-			this._logger.debug('FirebaseAuthAdminService', 'verifyToken', 'decodedToken', decodedToken);
+			this._logger.debug('FirebaseAuthAdminService', 'verifyToken', 'decodedToken', decodedToken, correlationId);
 
 			const uid = decodedToken.uid;
 			if (!uid)
@@ -149,7 +149,7 @@ class FirebaseAuthAdminService extends Service {
 			return results;
 		}
 		catch(err) {
-			this._logger.exception('FirebaseAuthAdminService', 'verifyToken', err);
+			this._logger.exception('FirebaseAuthAdminService', 'verifyToken', err, correlationId);
 			if (err.code === "auth/id-token-expired")
 				throw new TokenExpiredError();
 		}

@@ -1,10 +1,10 @@
 {
   "name": "@thzero/library_server_firebase",
-  "version": "0.8.7",
+  "version": "0.9.0",
   "version_major": 0,
-  "version_minor": 8,
-  "version_patch": 7,
-  "version_date": "09/20/2020",
+  "version_minor": 9,
+  "version_patch": 0,
+  "version_date": "09/27/2020",
   "author": "thZero",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@thzero/library_server": "^0.8.7",
-    "@thzero/library_common": "^0.8.7",
+    "@thzero/library_common": "^0.9.0",
     "firebase-admin": "^9.2.0"
   },
   "devDependencies": {

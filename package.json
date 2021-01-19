@@ -23,8 +23,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "@thzero/library_server": "^0.13.4",
-    "@thzero/library_common": "^0.13.2",
+    "@thzero/library_server": "^0.13.5",
+    "@thzero/library_common": "^0.13.4",
     "firebase-admin": "^9.4.2"
   },
   "devDependencies": {

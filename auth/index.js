@@ -135,7 +135,7 @@ class FirebaseAuthAdminService extends Service {
 					id: uid
 				})
 				if (!userUpdateResponse.success || !userUpdateResponse.results)
-					return userUpdateResponse;
+					return results;
 			}
 
 			results.user = userResponse.results;

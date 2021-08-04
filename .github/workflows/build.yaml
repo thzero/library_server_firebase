@@ -60,10 +60,6 @@ jobs:
       id: git-changes
       if: success()
       uses: UnicornGlobal/has-changes-action@v1.0.11
-    - name: Git Check
-      id: git-changes
-      if: success()
-      uses: UnicornGlobal/has-changes-action@v1.0.11
     - name: Git Check Output
       run: |
         echo changed? ${{ steps.git-changes.outputs.changed }}

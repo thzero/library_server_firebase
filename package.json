@@ -24,12 +24,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "firebase-admin": "^9.11.1"
+    "firebase-admin": "^9.12.0"
   },
   "peerDependencies": {
-    "@thzero/library_common": "^0.13",
-    "@thzero/library_common_service": "^0.13",
-    "@thzero/library_server": "^0.13"
+    "@thzero/library_common": "^0.14",
+    "@thzero/library_common_service": "^0.14",
+    "@thzero/library_server": "^0.14"
   },
   "devDependencies": {
     "@thzero/library_cli": "^0.13.19"

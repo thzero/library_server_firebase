@@ -130,11 +130,11 @@ class FirebaseAuthAdminService extends Service {
 			// const claims = user.customClaims;
 
 			const userResponse = await this._serviceUsers.fetchByExternalId(correlationId, uid);
-			if (!userResponse.success || !userResponse.results) {
+			if (this._hasFailed(userResponse) || (this._hasSucceeded(userResponse) && !userResponse.results)) {
 				const userUpdateResponse = this._serviceUsers.update(correlationId, {
 					id: uid
-				})
-				if (!userUpdateResponse.success || !userUpdateResponse.results)
+				});
+				if (this._hasFailed(userUpdateResponse) || (this._hasSucceeded(userUpdateResponse) && !userUpdateResponse.results))
 					return results;
 			}
 

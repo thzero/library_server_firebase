@@ -1,9 +1,9 @@
 {
   "name": "@thzero/library_server_firebase",
-  "version": "0.13.20",
+  "version": "0.14.0",
   "version_major": 0,
-  "version_minor": 13,
-  "version_patch": 20,
+  "version_minor": 14,
+  "version_patch": 0,
   "version_date": "10/02/2021",
   "author": "thZero",
   "license": "MIT",

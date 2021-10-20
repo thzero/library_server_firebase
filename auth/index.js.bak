@@ -1,6 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
 import admin from 'firebase-admin';
 
 import LibraryConstants from '@thzero/library_server/constants';
@@ -177,16 +174,7 @@ class FirebaseAuthAdminService extends Service {
 	}
 
 	_initConfig() {
-		const filePath = path.join(process.cwd(), 'config', 'serviceAccountKey.json');
-		const file = fs.readFileSync(filePath, 'utf8');
-		if (String.isNullOrEmpty(file))
-			throw Error('Invalid serviceAccountKey.json configuration file for Firebase; expected in the <app root>/config folder.');
-
-		const config = JSON.parse(file);
-		if (!config)
-			throw Error('Invalid serviceAccountKey.json file for Firebase config.');
-
-		return config;
+		throw new NotImplementedError();
 	}
 }
 

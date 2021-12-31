@@ -25,7 +25,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "firebase-admin": "^10.0.0"
+    "firebase-admin": "^10.0.1"
   },
   "peerDependencies": {
     "@thzero/library_common": "^0.15",

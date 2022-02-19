@@ -24,6 +24,8 @@ firebase-debug.log*
 
 !.vscode/launch.json
 
+.npmrc
+
 /config/development.json
 /config/productionManual.json
 /config/serviceAccountKey.json

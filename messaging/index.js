@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
 
-import Service from '@thzero/library_server/service/index';
+import Service from '@thzero/library_server/service/index.js';
 
 class FirebaseMessagingService extends Service {
 	constructor() {

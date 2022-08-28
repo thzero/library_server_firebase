@@ -3,13 +3,13 @@ import path from 'path';
 
 import admin from 'firebase-admin';
 
-import LibraryConstants from '@thzero/library_server/constants';
+import LibraryConstants from '@thzero/library_server/constants.js';
 
-import NotImplementedError from '@thzero/library_common/errors/notImplemented';
+import NotImplementedError from '@thzero/library_common/errors/notImplemented.js';
 
-import Service from '@thzero/library_server/service/index';
+import Service from '@thzero/library_server/service/index.js';
 
-import TokenExpiredError from '@thzero/library_server/errors/tokenExpired';
+import TokenExpiredError from '@thzero/library_server/errors/tokenExpired.js';
 
 class FirebaseAuthAdminService extends Service {
 	constructor() {

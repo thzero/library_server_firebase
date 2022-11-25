@@ -4,6 +4,12 @@
 
 # library_server_firebase
 
+## Requirements
+
+### NodeJs
+
+[NodeJs](https://nodejs.org) version 18+
+
 ### Installation
 
 [![NPM](https://nodei.co/npm/@thzero/library_server_firebase.png?compact=true)](https://npmjs.org/package/@thzero/library_server_firebase)

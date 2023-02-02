@@ -3,7 +3,7 @@ import path from 'path';
 
 import admin from 'firebase-admin';
 
-import LibraryConstants from '@thzero/library_server/constants.js';
+import LibraryServerConstants from '@thzero/library_server/constants.js';
 
 import NotImplementedError from '@thzero/library_common/errors/notImplemented.js';
 
@@ -31,7 +31,7 @@ class FirebaseAuthAdminService extends Service {
 			databaseURL: serviceAccount.database_url
 		});
 
-		this._serviceUsers  = this._injector.getService(LibraryConstants.InjectorKeys.SERVICE_USERS);
+		this._serviceUsers  = this._injector.getService(LibraryServerConstants.InjectorKeys.SERVICE_USERS);
 	}
 
 	async deleteUser(correlationId, uid) {

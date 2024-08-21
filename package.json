@@ -1,11 +1,11 @@
 {
   "name": "@thzero/library_server_firebase",
   "type": "module",
-  "version": "0.18.5",
+  "version": "0.18.6",
   "version_major": 0,
   "version_minor": 18,
-  "version_patch": 5,
-  "version_date": "06/27/2024",
+  "version_patch": 6,
+  "version_date": "08/20/2024",
   "author": "thZero",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "firebase-admin": "^12.2.0"
+    "firebase-admin": "^12.3.1"
   },
   "peerDependencies": {
     "@thzero/library_common": "^0.18",

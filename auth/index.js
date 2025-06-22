@@ -126,6 +126,9 @@ class FirebaseAuthAdminService extends Service {
 				return results;
 
 			if (this._cacheTokens.has(token)) {
+				// https://firebase.google.com/docs/auth/admin/manage-sessions
+				// firebase tokens are valid for an hour
+				// buffering...
 				const release = await this._mutexCache.acquire();
 				try {
 					if (this._cacheTokens.has(token)) {

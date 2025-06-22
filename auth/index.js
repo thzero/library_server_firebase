@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 
+import { Mutex as asyncMutex } from 'async-mutex';
+
 import admin from 'firebase-admin';
 
 import LibraryServerConstants from '@thzero/library_server/constants.js';
+
+import LibraryMomentUtility from '@thzero/library_common/utility/moment.js';
 
 import NotImplementedError from '@thzero/library_common/errors/notImplemented.js';
 
@@ -14,6 +18,10 @@ import TokenExpiredError from '@thzero/library_server/errors/tokenExpired.js';
 class FirebaseAuthAdminService extends Service {
 	constructor() {
 		super();
+
+		this._cacheTokens = new Map();
+		this._cacheTokensTtlDefault = 5 * 60 * 1000;
+		this._mutexCache = new asyncMutex();
 
 		this._serviceUsers = null;
 	}
@@ -117,6 +125,29 @@ class FirebaseAuthAdminService extends Service {
 			if (String.isNullOrEmpty(token))
 				return results;
 
+			if (this._cacheTokens.has(token)) {
+				// https://firebase.google.com/docs/auth/admin/manage-sessions
+				// firebase tokens are valid for an hour
+				// buffering...
+				const release = await this._mutexCache.acquire();
+				try {
+					if (this._cacheTokens.has(token)) {
+						const data = this._cacheTokens.get(token);
+						if (data) {
+							const now = LibraryMomentUtility.getTimestamp();
+							const delta = now - data.time;
+							if (delta <= this._cacheTokensTtlDefault)
+								return data.results;
+	
+							this._cacheTokens.delete(token);
+						}
+					}
+				}
+				finally {
+					release();
+				}
+			}
+
 			const decodedToken = await admin.auth().verifyIdToken(token);
 			if (!decodedToken)
 				return results;
@@ -148,6 +179,7 @@ class FirebaseAuthAdminService extends Service {
 			if (configAuth.claims && configAuth.claims.useDefault && !results.claims)
 				results.claims = [ this._defaultClaims() ];
 
+			this._cacheTokens.set(token, { time: LibraryMomentUtility.getTimestamp(), results: results });
 			results.success = true;
 			return results;
 		}

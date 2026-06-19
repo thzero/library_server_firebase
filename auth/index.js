@@ -3,7 +3,8 @@ import path from 'path';
 
 import { Mutex as asyncMutex } from 'async-mutex';
 
-import admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 import LibraryServerConstants from '@thzero/library_server/constants.js';
 
@@ -34,9 +35,10 @@ class FirebaseAuthAdminService extends Service {
 			serviceAccount = JSON.parse(serviceAccount);
 		if (!serviceAccount)
 			serviceAccount = this._initConfig();
-		admin.initializeApp({
-			credential: admin.credential.cert(serviceAccount),
-			databaseURL: serviceAccount.database_url
+
+		initializeApp({
+			credential: cert(serviceAccount),
+  			databaseURL: serviceAccount.database_url
 		});
 
 		this._serviceUsers  = this._injector.getService(LibraryServerConstants.InjectorKeys.SERVICE_USERS);
@@ -47,11 +49,11 @@ class FirebaseAuthAdminService extends Service {
 			if (String.isNullOrEmpty(uid))
 				return null;
 
-			const user = await admin.auth().getUser(uid);
+			const user = await getAuth().getUser(uid);
 			if (!user)
 				return null;
 
-			const results = await admin.auth().deleteUser(uid);
+			const results = await getAuth().deleteUser(uid);
 			if (!results)
 				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to delete user.', null, null, null, correlationId);
 
@@ -73,7 +75,7 @@ class FirebaseAuthAdminService extends Service {
 			if (String.isNullOrEmpty(uid))
 				return null;
 
-			const user = await admin.auth().getUser(uid);
+			const user = await getAuth().getUser(uid);
 			if (!user)
 				return null;
 
@@ -91,7 +93,7 @@ class FirebaseAuthAdminService extends Service {
 			this._enforceNotEmpty('FirebaseAuthAdminService', 'deleteUser', uid, 'uid', correlationId);
 
 			// Lookup the user associated with the specified uid.
-			const user = await admin.auth().getUser(uid);
+			const user = await getAuth().getUser(uid);
 			if (!user)
 				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to get user', null, null, null, correlationId);
 
@@ -104,7 +106,7 @@ class FirebaseAuthAdminService extends Service {
 
 			// The new custom claims will propagate to the user's ID token the
 			// next time a new one is issued.
-			await admin.auth().setCustomUserClaims(uid, updatedClaims);
+			await getAuth().setCustomUserClaims(uid, updatedClaims);
 
 			return this._success(correlationId);
 		}
@@ -148,7 +150,7 @@ class FirebaseAuthAdminService extends Service {
 				}
 			}
 
-			const decodedToken = await admin.auth().verifyIdToken(token);
+			const decodedToken = await getAuth().verifyIdToken(token);
 			if (!decodedToken)
 				return results;
 
@@ -160,7 +162,7 @@ class FirebaseAuthAdminService extends Service {
 
 			// Getting user from database, which has the claims already, plus plan, etc.
 			// Lookup the user associated with the specified uid.
-			// const user = await admin.auth().getUser(uid);
+			// const user = await getAuth().getUser(uid);
 			// const claims = user.customClaims;
 
 			const userResponse = await this._serviceUsers.fetchByExternalId(correlationId, uid);

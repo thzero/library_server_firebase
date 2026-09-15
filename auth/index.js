@@ -62,12 +62,12 @@ class FirebaseAuthAdminService extends Service {
 		catch(err) {
 			if (err.code && err.code === 'auth/user-not-found') {
 				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found', err, correlationId);
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'user-not-found', err, correlationId);
+				return this._error('FirebaseAuthAdminService', 'deleteUser', 'user-not-found', err, null, null, correlationId);
 			}
 			this._logger.exception('FirebaseAuthAdminService', 'deleteUser', err, correlationId);
 		}
 
-		return this._error('FirebaseAuthAdminService', 'deleteUser', null, null, null, correlationId);
+		return this._error('FirebaseAuthAdminService', 'deleteUser', null, null, null, null, correlationId);
 	}
 
 	async getUser(correlationId, uid) {
@@ -90,12 +90,12 @@ class FirebaseAuthAdminService extends Service {
 
 	async setClaims(correlationId, uid, claims, replace) {
 		try {
-			this._enforceNotEmpty('FirebaseAuthAdminService', 'deleteUser', uid, 'uid', correlationId);
+			this._enforceNotEmpty('FirebaseAuthAdminService', 'setClaims', uid, 'uid', correlationId);
 
 			// Lookup the user associated with the specified uid.
 			const user = await getAuth().getUser(uid);
 			if (!user)
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to get user', null, null, null, correlationId);
+				return this._error('FirebaseAuthAdminService', 'setClaims', 'Unable to get user', null, null, null, correlationId);
 
 			let updatedClaims = claims ? { ...claims } : null;
 			if (!replace) {
@@ -112,7 +112,7 @@ class FirebaseAuthAdminService extends Service {
 		}
 		catch(err) {
 			this._logger.exception('FirebaseAuthAdminService', 'setClaims', err, correlationId);
-			return this._error('FirebaseAuthAdminService', 'setClaims', err, null, null, null, correlationId);
+			return this._error('FirebaseAuthAdminService', 'setClaims', null, err, null, null, correlationId);
 		}
 	}
 
@@ -165,13 +165,14 @@ class FirebaseAuthAdminService extends Service {
 			// const user = await getAuth().getUser(uid);
 			// const claims = user.customClaims;
 
-			const userResponse = await this._serviceUsers.fetchByExternalId(correlationId, uid);
+			let userResponse = await this._serviceUsers.fetchByExternalId(correlationId, uid);
 			if (this._hasFailed(userResponse) || (this._hasSucceeded(userResponse) && !userResponse.results)) {
-				const userUpdateResponse = this._serviceUsers.update(correlationId, {
+				const userUpdateResponse = await this._serviceUsers.update(correlationId, {
 					id: uid
 				});
 				if (this._hasFailed(userUpdateResponse) || (this._hasSucceeded(userUpdateResponse) && !userUpdateResponse.results))
 					return results;
+				userResponse = userUpdateResponse;
 			}
 
 			results.user = userResponse.results;

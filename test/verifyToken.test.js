@@ -1,7 +1,7 @@
 // Needs --experimental-test-module-mocks (set in the package test script):
 // verifyToken calls getAuth().verifyIdToken, so firebase-admin has to be stubbed.
 import assert from 'node:assert/strict';
-import { describe, it, mock } from 'node:test';
+import { afterEach, describe, it, mock } from 'node:test';
 
 mock.module('firebase-admin/app', { exports: { initializeApp: () => {}, cert: () => ({}) } });
 mock.module('firebase-admin/auth', {
@@ -115,5 +115,107 @@ describe('verifyToken', () => {
 		const second = await service.verifyToken('cid', 'token');
 		assert.equal(lookups, 1, 'the second call came from the token cache');
 		assert.equal(second, first);
+	});
+});
+
+describe('the token cache', () => {
+	const TTL = 5 * 60 * 1000;
+
+	afterEach(() => {
+		mock.timers.reset();
+	});
+
+	// A page load fires several requests carrying the same fresh token at once.
+	it('shares one verification between concurrent requests with the same token', async () => {
+		let lookups = 0;
+		let release;
+		const gate = new Promise((resolve) => { release = resolve; });
+		const { service } = newService({
+			async fetchByExternalId() { lookups++; await gate; return existing; },
+			async update() { throw new Error('must not be called'); }
+		});
+
+		const pending = Promise.all([ service.verifyToken('a', 'token'), service.verifyToken('b', 'token'), service.verifyToken('c', 'token') ]);
+		assert.equal(service._cacheTokensPending.size, 1);
+		release();
+		const results = await pending;
+
+		assert.equal(lookups, 1);
+		assert.equal(results[1], results[0]);
+		assert.equal(results[2], results[0]);
+		assert.equal(service._cacheTokensPending.size, 0, 'nothing left in flight');
+	});
+
+	it('shares a failed verification too, and caches nothing from it', async () => {
+		const { service } = newService({
+			async fetchByExternalId() { return notFound; },
+			async update() { return { success: false, results: null }; }
+		});
+		const results = await Promise.all([ service.verifyToken('a', 'token'), service.verifyToken('b', 'token') ]);
+		assert.equal(results[0].success, false);
+		assert.equal(results[1].success, false);
+		assert.equal(service._cacheTokens.size, 0);
+		assert.equal(service._cacheTokensPending.size, 0);
+	});
+
+	// Regression: an entry was only removed when its exact token was presented
+	// again. Firebase rotates tokens hourly, so old ones never were, and the map
+	// gained one entry per user per hour for the life of the process.
+	it('sweeps an expired entry on the timer without the token being presented again', async () => {
+		mock.timers.enable({ apis: [ 'Date', 'setInterval' ], now: 1_000_000 });
+		const { service } = newService({
+			async fetchByExternalId() { return existing; },
+			async update() { throw new Error('must not be called'); }
+		});
+
+		await service.verifyToken('cid', 'token');
+		assert.equal(service._cacheTokens.size, 1);
+		assert.notEqual(service._cacheTokensSweepHandle, null, 'the sweep starts with the first entry');
+
+		mock.timers.tick(TTL);
+		assert.equal(service._cacheTokens.size, 1, 'still inside the ttl at the first tick');
+
+		mock.timers.tick(TTL);
+		assert.equal(service._cacheTokens.size, 0);
+		assert.equal(service._cacheTokensSweepHandle, null, 'and the timer stops once the cache is empty');
+	});
+
+	it('drops the oldest entries past the ceiling', async () => {
+		const { service } = newService({
+			async fetchByExternalId() { return existing; },
+			async update() { throw new Error('must not be called'); }
+		});
+		service._cacheTokensMax = 2;
+
+		await service.verifyToken('cid', 'token-1');
+		await service.verifyToken('cid', 'token-2');
+		await service.verifyToken('cid', 'token-3');
+
+		assert.equal(service._cacheTokens.size, 2);
+		assert.equal(service._cacheTokens.has('token-1'), false);
+		assert.equal(service._cacheTokens.has('token-3'), true);
+	});
+
+	it('reads without a lock', async () => {
+		const { service } = newService({
+			async fetchByExternalId() { return existing; },
+			async update() { throw new Error('must not be called'); }
+		});
+		await service.verifyToken('cid', 'token');
+		assert.equal(service._mutexCache, undefined);
+	});
+
+	it('cleanup stops the sweep timer', async () => {
+		mock.timers.enable({ apis: [ 'setInterval' ] });
+		const { service } = newService({
+			async fetchByExternalId() { return existing; },
+			async update() { throw new Error('must not be called'); }
+		});
+		await service.verifyToken('cid', 'token');
+		assert.notEqual(service._cacheTokensSweepHandle, null);
+
+		const response = await service.cleanup('cid');
+		assert.equal(service._hasSucceeded(response), true);
+		assert.equal(service._cacheTokensSweepHandle, null);
 	});
 });

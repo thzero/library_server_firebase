@@ -1,11 +1,13 @@
 // Needs --experimental-test-module-mocks (set in the package test script):
 // verifyToken calls getAuth().verifyIdToken, so firebase-admin has to be stubbed.
+// namedExports, not exports: CI runs Node 22, which ignores `exports` and mocks
+// the module with no exports at all. Node 24 warns that it is deprecated.
 import assert from 'node:assert/strict';
 import { afterEach, describe, it, mock } from 'node:test';
 
-mock.module('firebase-admin/app', { exports: { initializeApp: () => {}, cert: () => ({}) } });
+mock.module('firebase-admin/app', { namedExports: { initializeApp: () => {}, cert: () => ({}) } });
 mock.module('firebase-admin/auth', {
-	exports: { getAuth: () => ({ verifyIdToken: async () => ({ uid: 'uid-1' }) }) }
+	namedExports: { getAuth: () => ({ verifyIdToken: async () => ({ uid: 'uid-1' }) }) }
 });
 
 await import('@thzero/library_common/utility/string.js');

@@ -116,7 +116,7 @@ describe('verifyToken', () => {
 		const first = await service.verifyToken('cid', 'token');
 		const second = await service.verifyToken('cid', 'token');
 		assert.equal(lookups, 1, 'the second call came from the token cache');
-		assert.equal(second, first);
+		assert.deepEqual(second, first);
 	});
 });
 
@@ -143,8 +143,9 @@ describe('the token cache', () => {
 		const results = await pending;
 
 		assert.equal(lookups, 1);
-		assert.equal(results[1], results[0]);
-		assert.equal(results[2], results[0]);
+		assert.deepEqual(results[1], results[0]);
+		assert.deepEqual(results[2], results[0]);
+		assert.notEqual(results[1], results[0], 'each caller gets its own copy');
 		assert.equal(service._cacheTokensPending.size, 0, 'nothing left in flight');
 	});
 
@@ -219,5 +220,29 @@ describe('the token cache', () => {
 		const response = await service.cleanup('cid');
 		assert.equal(service._hasSucceeded(response), true);
 		assert.equal(service._cacheTokensSweepHandle, null);
+	});
+});
+
+describe('verifyToken, revoked or deleted users', () => {
+	for (const code of [ 'auth/user-not-found', 'auth/user-disabled', 'auth/id-token-revoked' ]) {
+		it(`refuses ${code} without creating a record`, async () => {
+			let updates = 0;
+			const { service } = newService({
+				async fetchByExternalId() { return notFound; },
+				async update() { updates++; return created; }
+			});
+			service._auth = () => ({ verifyIdToken: async () => { throw Object.assign(new Error(code), { code }); } });
+			const results = await service.verifyToken('cid', `token-${code}`);
+			assert.equal(results.success, false);
+			assert.equal(updates, 0);
+		});
+	}
+
+	it('asks firebase to check for revocation', async () => {
+		let checkRevoked;
+		const { service } = newService({ async fetchByExternalId() { return existing; } });
+		service._auth = () => ({ verifyIdToken: async (token, check) => { checkRevoked = check; return { uid: 'uid-1' }; } });
+		await service.verifyToken('cid', 'token-check');
+		assert.equal(checkRevoked, true);
 	});
 });

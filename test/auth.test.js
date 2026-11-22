@@ -62,10 +62,27 @@ describe('deleteUser', () => {
 	// Regression: _error is (clazz, method, message, err, code, errors, correlationId)
 	// and this call passed correlationId in the `code` slot, so the response came
 	// back with no correlationId at all.
-	it('carries the correlationId when the user is not in firebase', async () => {
-		const response = await service.deleteUser('cid-123', 'missing');
+	it('carries the correlationId when firebase fails', async () => {
+		service._auth = () => ({ deleteUser: async () => { throw Object.assign(new Error('boom'), { code: 'auth/internal-error' }); } });
+		const response = await service.deleteUser('cid-123', 'u1');
 		assert.equal(service._hasFailed(response), true);
 		assert.equal(response.correlationId, 'cid-123', 'the failure is tied to its request');
+		assert.equal(logger.entries.exception.length, 1);
+	});
+
+	it('succeeds when firebase resolves with nothing', async () => {
+		const deleted = [];
+		service._auth = () => ({ deleteUser: async (uid) => { deleted.push(uid); } });
+		const response = await service.deleteUser('cid', 'u1');
+		assert.equal(service._hasSucceeded(response), true);
+		assert.deepEqual(deleted, [ 'u1' ]);
+	});
+
+	it('treats a user that is not in firebase as already deleted', async () => {
+		service._auth = () => ({ deleteUser: async () => { throw Object.assign(new Error('missing'), { code: 'auth/user-not-found' }); } });
+		const response = await service.deleteUser('cid', 'missing');
+		assert.equal(service._hasSucceeded(response), true);
+		assert.equal(logger.entries.warn.length, 1);
 	});
 });
 
@@ -107,14 +124,45 @@ describe('verifyToken', () => {
 
 	it('serves a cached result inside the ttl', async () => {
 		const cached = { user: { id: 'u1' }, claims: [ 'user' ], success: true };
-		service._cacheTokens.set('tok', { time: LibraryMomentUtility.getTimestamp(), results: cached });
-		assert.equal(await service.verifyToken('cid', 'tok'), cached);
+		service._cacheTokensSet('tok', cached, 'u1', null);
+		assert.deepEqual(await service.verifyToken('cid', 'tok'), cached);
+	});
+
+	it('hands each caller its own copy of a cached result', async () => {
+		const cached = { user: { id: 'u1' }, claims: [ 'user' ], success: true };
+		service._cacheTokensSet('tok', cached, 'u1', null);
+		const first = await service.verifyToken('cid', 'tok');
+		first.user.id = 'changed';
+		assert.equal((await service.verifyToken('cid', 'tok')).user.id, 'u1');
+	});
+
+	it('expires an entry when the token does, if that is sooner than the ttl', async () => {
+		const now = LibraryMomentUtility.getTimestamp();
+		service._cacheTokensSet('tok', { user: { id: 'u1' }, success: true }, 'u1', now + 1000);
+		assert.equal(service._cacheTokens.get('tok').expiresAt, now + 1000);
+		service._cacheTokensSet('dead', { user: { id: 'u1' }, success: true }, 'u1', now - 1);
+		assert.equal(service._cacheTokens.has('dead'), false, 'an expired token is not cached at all');
+	});
+
+	it('invalidateUser drops every cached token for that user only', async () => {
+		service._cacheTokensSet('a1', { user: { id: 'a' }, success: true }, 'a', null);
+		service._cacheTokensSet('a2', { user: { id: 'a' }, success: true }, 'a', null);
+		service._cacheTokensSet('b1', { user: { id: 'b' }, success: true }, 'b', null);
+		service.invalidateUser('a');
+		assert.deepEqual([ ...service._cacheTokens.keys() ], [ 'b1' ]);
+		assert.equal(service._cacheTokensByUid.has('a'), false);
+	});
+
+	it('deleting a user drops their cached tokens', async () => {
+		service._cacheTokensSet('a1', { user: { id: 'a' }, success: true }, 'a', null);
+		service._auth = () => ({ deleteUser: async () => {} });
+		await service.deleteUser('cid', 'a');
+		assert.equal(service._cacheTokens.has('a1'), false);
 	});
 
 	it('drops a cached result once the ttl has passed', async () => {
 		const cached = { user: { id: 'u1' }, claims: [ 'user' ], success: true };
-		const stale = LibraryMomentUtility.getTimestamp() - service._cacheTokensTtlDefault - 1;
-		service._cacheTokens.set('tok', { time: stale, results: cached });
+		service._cacheTokens.set('tok', { expiresAt: LibraryMomentUtility.getTimestamp() - 1, uid: 'u1', results: cached });
 		// firebase is not initialised here, so the call past the cache fails - what
 		// matters is that the stale entry was evicted rather than served
 		await service.verifyToken('cid', 'tok').catch(() => {});

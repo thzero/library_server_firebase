@@ -24,6 +24,7 @@ class FirebaseAuthAdminService extends Service {
 		// again, and firebase rotates tokens hourly, so old ones never were: one
 		// entry per user per hour, kept for the life of the process.
 		this._cacheTokens = new Map();
+		this._cacheTokensByUid = new Map();
 		this._cacheTokensMax = 10000;
 		this._cacheTokensPending = new Map();
 		this._cacheTokensSweepHandle = null;
@@ -60,25 +61,22 @@ class FirebaseAuthAdminService extends Service {
 			if (String.isNullOrEmpty(uid))
 				return null;
 
-			const user = await getAuth().getUser(uid);
-			if (!user)
-				return null;
-
-			const results = await getAuth().deleteUser(uid);
-			if (!results)
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'Unable to delete user.', null, null, null, correlationId);
-
+			await this._auth().deleteUser(uid);
+			this.invalidateUser(uid);
 			return this._success(correlationId);
 		}
 		catch(err) {
-			if (err.code && err.code === 'auth/user-not-found') {
-				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found', err, correlationId);
-				return this._error('FirebaseAuthAdminService', 'deleteUser', 'user-not-found', err, null, null, correlationId);
+			if (err && (err.code === 'auth/user-not-found')) {
+				this._logger.warn('FirebaseAuthAdminService', 'deleteUser', 'user not found; treating as already deleted', err, correlationId);
+				this.invalidateUser(uid);
+				return this._success(correlationId);
 			}
-			this._logger.exception('FirebaseAuthAdminService', 'deleteUser', err, correlationId);
+			return this._error('FirebaseAuthAdminService', 'deleteUser', null, err, null, null, correlationId);
 		}
+	}
 
-		return this._error('FirebaseAuthAdminService', 'deleteUser', null, null, null, null, correlationId);
+	_auth() {
+		return getAuth();
 	}
 
 	async getUser(correlationId, uid) {
@@ -97,6 +95,19 @@ class FirebaseAuthAdminService extends Service {
 		}
 
 		return null
+	}
+
+	invalidateUser(uid) {
+		if (String.isNullOrEmpty(uid))
+			return;
+
+		const tokens = this._cacheTokensByUid.get(uid);
+		if (!tokens)
+			return;
+
+		for (const token of tokens)
+			this._cacheTokens.delete(token);
+		this._cacheTokensByUid.delete(uid);
 	}
 
 	async setClaims(correlationId, uid, claims, replace) {
@@ -118,6 +129,7 @@ class FirebaseAuthAdminService extends Service {
 			// The new custom claims will propagate to the user's ID token the
 			// next time a new one is issued.
 			await getAuth().setCustomUserClaims(uid, updatedClaims);
+			this.invalidateUser(uid);
 
 			return this._success(correlationId);
 		}
@@ -136,7 +148,7 @@ class FirebaseAuthAdminService extends Service {
 		// behind every other one.
 		const cached = this._cacheTokensGet(token);
 		if (cached)
-			return cached;
+			return this._verifyTokenCopy(cached);
 
 		// One verification per token at a time. A page load fires several requests
 		// carrying the same fresh token; they share the verification rather than
@@ -149,7 +161,7 @@ class FirebaseAuthAdminService extends Service {
 				});
 			this._cacheTokensPending.set(token, pending);
 		}
-		return await pending;
+		return this._verifyTokenCopy(await pending);
 	}
 
 	_cacheTokensGet(token) {
@@ -158,20 +170,50 @@ class FirebaseAuthAdminService extends Service {
 			return null;
 
 		// https://firebase.google.com/docs/auth/admin/manage-sessions
-		// firebase tokens are valid for an hour; the cache holds one for less.
-		if ((LibraryMomentUtility.getTimestamp() - data.time) <= this._cacheTokensTtlDefault)
+		if (LibraryMomentUtility.getTimestamp() <= data.expiresAt)
 			return data.results;
 
-		this._cacheTokens.delete(token);
+		this._cacheTokensDelete(token, data);
 		return null;
 	}
 
-	_cacheTokensSet(token, results) {
-		this._cacheTokens.set(token, { time: LibraryMomentUtility.getTimestamp(), results: results });
+	_cacheTokensDelete(token, data) {
+		this._cacheTokens.delete(token);
+		const uid = data ? data.uid : null;
+		if (!uid)
+			return;
+
+		const tokens = this._cacheTokensByUid.get(uid);
+		if (!tokens)
+			return;
+		tokens.delete(token);
+		if (tokens.size === 0)
+			this._cacheTokensByUid.delete(uid);
+	}
+
+	_cacheTokensSet(token, results, uid, expiresAtToken) {
+		const now = LibraryMomentUtility.getTimestamp();
+		let expiresAt = now + this._cacheTokensTtlDefault;
+		if (Number.isFinite(expiresAtToken) && (expiresAtToken < expiresAt))
+			expiresAt = expiresAtToken;
+		if (expiresAt <= now)
+			return;
+
+		this._cacheTokens.set(token, { expiresAt, uid, results });
+		if (uid) {
+			let tokens = this._cacheTokensByUid.get(uid);
+			if (!tokens) {
+				tokens = new Set();
+				this._cacheTokensByUid.set(uid, tokens);
+			}
+			tokens.add(token);
+		}
 
 		// A Map iterates in insertion order, so the first key is the oldest.
-		while (this._cacheTokens.size > this._cacheTokensMax)
-			this._cacheTokens.delete(this._cacheTokens.keys().next().value);
+		while (this._cacheTokens.size > this._cacheTokensMax) {
+			const oldest = this._cacheTokens.keys().next().value;
+			this._cacheTokensDelete(oldest, this._cacheTokens.get(oldest));
+		}
 
 		this._cacheTokensSweepStart();
 	}
@@ -181,8 +223,8 @@ class FirebaseAuthAdminService extends Service {
 	_cacheTokensSweep() {
 		const now = LibraryMomentUtility.getTimestamp();
 		for (const [ token, data ] of this._cacheTokens) {
-			if ((now - data.time) > this._cacheTokensTtlDefault)
-				this._cacheTokens.delete(token);
+			if (now > data.expiresAt)
+				this._cacheTokensDelete(token, data);
 		}
 
 		if (this._cacheTokens.size === 0)
@@ -209,6 +251,13 @@ class FirebaseAuthAdminService extends Service {
 		this._cacheTokensSweepHandle = null;
 	}
 
+	_verifyTokenCopy(results) {
+		if (!results)
+			return results;
+
+		return { ...results, user: results.user ? { ...results.user } : results.user };
+	}
+
 	_verifyTokenResults() {
 		return {
 			user: null,
@@ -221,7 +270,19 @@ class FirebaseAuthAdminService extends Service {
 		try {
 			const results = this._verifyTokenResults();
 
-			const decodedToken = await getAuth().verifyIdToken(token);
+			const configAuth = this._config.get('auth', null) ?? {};
+			const checkRevoked = configAuth.checkRevoked !== false;
+			let decodedToken;
+			try {
+				decodedToken = await this._auth().verifyIdToken(token, checkRevoked);
+			}
+			catch (err) {
+				if (err && [ 'auth/id-token-revoked', 'auth/user-disabled', 'auth/user-not-found' ].includes(err.code)) {
+					this._logger.warn('FirebaseAuthAdminService', 'verifyToken', err.code, null, correlationId);
+					return results;
+				}
+				throw err;
+			}
 			if (!decodedToken)
 				return results;
 
@@ -249,12 +310,11 @@ class FirebaseAuthAdminService extends Service {
 			results.user = userResponse.results;
 
 			results.claims = userResponse.results.claims;
-			const configAuth = this._config.get('auth');
 			if (configAuth.claims && configAuth.claims.useDefault && !results.claims)
 				results.claims = [ this._defaultClaims() ];
 
-			this._cacheTokensSet(token, results);
 			results.success = true;
+			this._cacheTokensSet(token, results, uid, Number.isFinite(decodedToken.exp) ? decodedToken.exp * 1000 : null);
 			return results;
 		}
 		catch(err) {
